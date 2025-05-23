@@ -2,6 +2,7 @@ package com.example.offerlisting.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,10 +21,19 @@ class OffersViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _offerList = MutableLiveData<List<OffersModel>?>()
-    val offerList : LiveData<List<OffersModel>?> = _offerList
 
     private val _categoryList = MutableLiveData<List<CategoryModel>?>()
     val categoryList : LiveData<List<CategoryModel>?> = _categoryList
+
+    private val selectedCategories = MutableLiveData<List<String>>(emptyList())
+    private val searchQuery = MutableLiveData<String>("")
+    val filteredOfferList = MediatorLiveData<List<OffersModel>?>()
+
+    init {
+        filteredOfferList.addSource(_offerList) { filterOffer() }
+        filteredOfferList.addSource(searchQuery) { filterOffer() }
+        filteredOfferList.addSource(selectedCategories) { filterOffer() }
+    }
 
 
     fun getOrderData() {
@@ -40,11 +50,38 @@ class OffersViewModel @Inject constructor(
         _offerList.postValue(filteredOffer)
     }
 
-    fun filterOffer(categoryIdList : List<String>) {
-        val filteredOffer = _offerList.value?.filter { offer ->
-            categoryIdList.any { id -> id == offer.id }
+    fun setSearchQuery(query : String) {
+        searchQuery.value = query
+    }
+
+    fun setSelectedCategories(categoriesIdList : List<String>) {
+        selectedCategories.value = categoriesIdList
+    }
+
+    fun resetFilters() {
+        selectedCategories.value = emptyList()
+        searchQuery.value = ""
+    }
+
+    private fun filterOffer() {
+        val originalList = _offerList.value ?: return
+        val categories = selectedCategories.value ?: emptyList()
+        val query = searchQuery.value?.trim()?.lowercase() ?: ""
+
+        var filteredData = originalList
+
+        if (categories.isNotEmpty()) {
+            filteredData = filteredData.filter { offer ->
+                categories.contains(offer.id)
+            }
         }
-        Log.d("ViewModel", "filterOffer: ${filteredOffer.toString()}")
-        filteredOffer?.let { setOfferData(it) }
+
+        if (query.isNotEmpty()) {
+            filteredData = filteredData.filter { offer ->
+                offer.offerName.contains(query, ignoreCase = true)
+            }
+        }
+
+        filteredOfferList.value = filteredData
     }
 }

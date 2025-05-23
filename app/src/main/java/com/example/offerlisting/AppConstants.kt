@@ -4,7 +4,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 
 object AppConstants {
-    const val OFFER_LISTING_URL = "http://demo0891151.mockable.io/"
+    const val OFFER_LISTING_URL = "http://demo0891151.mockable.io/offers"
 
 
     fun navigateToTargetFragment(requiredActivity : FragmentActivity, targetFragment : Fragment) {
