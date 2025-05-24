@@ -1,7 +1,6 @@
 package com.example.offerlisting.viewmodel
 
 import android.util.Log
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -23,65 +22,87 @@ class OffersViewModel @Inject constructor(
     private val _offerList = MutableLiveData<List<OffersModel>?>()
 
     private val _categoryList = MutableLiveData<List<CategoryModel>?>()
-    val categoryList : LiveData<List<CategoryModel>?> = _categoryList
 
     private val selectedCategories = MutableLiveData<List<String>>(emptyList())
     private val searchQuery = MutableLiveData<String>("")
     val filteredOfferList = MediatorLiveData<List<OffersModel>?>()
+    val selectedCategoryList = MediatorLiveData<List<CategoryModel>?>()
+
+    private var selectedIds = mutableListOf<String>()
 
     init {
         filteredOfferList.addSource(_offerList) { filterOffer() }
         filteredOfferList.addSource(searchQuery) { filterOffer() }
         filteredOfferList.addSource(selectedCategories) { filterOffer() }
+
+        selectedCategoryList.addSource(selectedCategories) { updateCategoriesSelection() }
+        selectedCategoryList.addSource(_categoryList) { updateCategoriesSelection() }
     }
 
-
-    fun getOrderData() {
+    fun getOfferData() {
         viewModelScope.launch(Dispatchers.IO) {
             val offerResponse : OffersDataResponse? = offersRepo.getOffersDetails()
             offerResponse?.let {
                 _categoryList.postValue(it.categories)
-                setOfferData(it.offers)
+                _offerList.postValue(it.offers)
             }
         }
-    }
-
-    private fun setOfferData(filteredOffer: List<OffersModel>) {
-        _offerList.postValue(filteredOffer)
     }
 
     fun setSearchQuery(query : String) {
         searchQuery.value = query
     }
 
-    fun setSelectedCategories(categoriesIdList : List<String>) {
-        selectedCategories.value = categoriesIdList
+    fun setSelectedCategories() {
+        selectedCategories.value = selectedIds
+    }
+
+    private fun updateCategoriesSelection() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val updatedCategories = _categoryList.value?.map { category ->
+                category.copy(
+                    isSelected = selectedCategories.value?.contains(category.id) == true
+                )
+            }
+            updatedCategories?.let {
+                selectedCategoryList.postValue(it)
+            }
+        }
+    }
+
+    fun updateSelectedIdList(id : String, checked : Boolean) {
+        if (checked) {
+            selectedIds.add(id)
+        } else {
+            selectedIds.remove(id)
+        }
     }
 
     fun resetFilters() {
+        selectedIds.clear()
         selectedCategories.value = emptyList()
-        searchQuery.value = ""
     }
 
     private fun filterOffer() {
-        val originalList = _offerList.value ?: return
-        val categories = selectedCategories.value ?: emptyList()
-        val query = searchQuery.value?.trim()?.lowercase() ?: ""
+        viewModelScope.launch(Dispatchers.Default) {
+            val originalList = _offerList.value ?: return@launch
+            val categories = selectedCategories.value ?: emptyList()
+            val query = searchQuery.value?.trim()?.lowercase() ?: ""
 
-        var filteredData = originalList
+            var filteredData = originalList
 
-        if (categories.isNotEmpty()) {
-            filteredData = filteredData.filter { offer ->
-                categories.contains(offer.id)
+            if (categories.isNotEmpty()) {
+                filteredData = filteredData.filter { offer ->
+                    categories.contains(offer.id)
+                }
             }
-        }
 
-        if (query.isNotEmpty()) {
-            filteredData = filteredData.filter { offer ->
-                offer.offerName.contains(query, ignoreCase = true)
+            if (query.isNotEmpty()) {
+                filteredData = filteredData.filter { offer ->
+                    offer.offerName.contains(query, ignoreCase = true)
+                }
             }
+            filteredOfferList.postValue(filteredData)
         }
-
-        filteredOfferList.value = filteredData
     }
 }
