@@ -23,12 +23,12 @@ class OffersViewModel @Inject constructor(
 
     private val _categoryList = MutableLiveData<List<CategoryModel>?>()
 
-    private val selectedCategories = MutableLiveData<List<String>>(emptyList())
+    private val selectedCategories = MutableLiveData<Set<String>>(emptySet())
     private val searchQuery = MutableLiveData<String>("")
     val filteredOfferList = MediatorLiveData<List<OffersModel>?>()
     val selectedCategoryList = MediatorLiveData<List<CategoryModel>?>()
 
-    private var selectedIds = mutableListOf<String>()
+    private var selectedIds = mutableSetOf<String>()
 
     init {
         filteredOfferList.addSource(_offerList) { filterOffer() }
@@ -54,11 +54,13 @@ class OffersViewModel @Inject constructor(
     }
 
     fun setSelectedCategories() {
-        selectedCategories.value = selectedIds
+        Log.d("ViewModel", "setSelectedCategories: ${selectedIds.toString()}")
+        selectedCategories.value = selectedIds.toSet()
     }
 
     private fun updateCategoriesSelection() {
         viewModelScope.launch(Dispatchers.Default) {
+            Log.d("ViewModel", "updateCategoriesSelection: ${selectedCategories.value.toString()}")
             val updatedCategories = _categoryList.value?.map { category ->
                 category.copy(
                     isSelected = selectedCategories.value?.contains(category.id) == true
@@ -80,11 +82,12 @@ class OffersViewModel @Inject constructor(
 
     fun resetFilters() {
         selectedIds.clear()
-        selectedCategories.value = emptyList()
+        selectedCategories.value = emptySet()
     }
 
     private fun filterOffer() {
         viewModelScope.launch(Dispatchers.Default) {
+            Log.d("ViewModel", "filterOffer: ${selectedCategories.value.toString()}")
             val originalList = _offerList.value ?: return@launch
             val categories = selectedCategories.value ?: emptyList()
             val query = searchQuery.value?.trim()?.lowercase() ?: ""
